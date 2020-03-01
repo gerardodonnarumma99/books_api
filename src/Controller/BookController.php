@@ -22,16 +22,28 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class BookController extends AbstractController
 {
     /**
-     * @param Request $request
+     * @param
      * @return Response
      *
      * @Route("/api/v1/books", methods={"post"})
      *
-     * @SWG\Get(
+     * @SWG\Post(
      *      description="Crea un libro",
-     *      @SWG\Response(
-     *          response=200,
-     *          description="Libro creato"
+     *       @SWG\Parameter(
+     *          name="body",
+     *          description="Dati di un libro",
+     *          in="body",
+     *          required=true,
+     *          @SWG\Schema(ref=@Model(type=Book::class))
+     *     )
+     *     ),
+     * @SWG\Response(
+     *          response=204,
+     *          description="Libro creato",
+     *     ),
+     * @SWG\Response(
+     *          response=400,
+     *          description="Errore nella creazione del libro",
      *     )
      * )
      * @SWG\Tag(name="Books")
@@ -42,11 +54,11 @@ class BookController extends AbstractController
 	try{
 	   $bookRequest=json_decode($request->getContent(),1,512,JSON_THROW_ON_ERROR);
 
-           $book=new Book();
-           $book->setTitle($bookRequest['title']);
-           $book->setPrice($bookRequest['price']);
+        $book=new Book();
+        $book->setTitle($bookRequest['title']);
+        $book->setPrice($bookRequest['price']);
 
-	   //Controllo validazioni
+	    //Controllo validazioni
 	   $errors = $validator->validate($book);
     	   if (count($errors) > 0)
         	return new Response(null,400);
@@ -54,9 +66,9 @@ class BookController extends AbstractController
 	   $entityManager = $this->getDoctrine()->getManager();
 	   $entityManager->persist($book);
 	   $entityManager->flush();
-           $jsonContent=$this->get('serializer')->serialize($book,'json');
+       $jsonContent=$this->get('serializer')->serialize($book,'json');
 
-	   return new Response($jsonContent);
+	   return new Response(null,200);
 	}
 	catch(\JsonException $exception) {
 	   return new Response($exception->getMessage(),400);
@@ -80,8 +92,12 @@ class BookController extends AbstractController
      *      ),
      *      @SWG\Response(
      *          response=200,
-     *          description="il libro trovato",
+     *          description="Il libro trovato",
      *          @SWG\Schema(ref=@Model(type=Book::class))
+     *     ),
+     *      @SWG\Response(
+     *          response=400,
+     *          description="Libro non trovato",
      *     )
      * )
      * @SWG\Tag(name="Books")
@@ -112,6 +128,10 @@ class BookController extends AbstractController
      *          response=200,
      *          description="La lista di tutti i libri",
      *          @SWG\Items(@Model(type=Book::class))
+     *     ),
+     *      @SWG\Response(
+     *          response=204,
+     *          description="Lista dei libri vuota",
      *     )
      * )
      * @SWG\Tag(name="Books")
@@ -119,18 +139,14 @@ class BookController extends AbstractController
      * */
     public function getListBook()
     {
-	$repository=$this->getDoctrine()->getRepository(Book::class);
+        $repository=$this->getDoctrine()->getRepository(Book::class);
 
-	$books=$repository->findAll();
+	    $books=$repository->findAll();
 
-	$listBook=[];
-	foreach($books as $book)
-		array_push($listBook,$this->get('serializer')->serialize($book,'json'));
-	
-	if($listBook==null)
-	 return new Response(null,204);
+        if($books==null)
+            return new JsonResponse([],204);
         
-	return new Response(implode($listBook),200);
+	    return new Response($this->get('serializer')->serialize($books,'json'),200);
     }
 
     /**
@@ -140,7 +156,7 @@ class BookController extends AbstractController
      * @Route("/api/v1/books/{id}", methods={"delete"})
      *
      * @SWG\Delete(
-     *      description="Recupera un libro avendo un id",
+     *      description="Elimina un libro avendo un id",
      *      @SWG\Parameter(
      *          name="id",
      *          description="id del libro",
@@ -150,7 +166,11 @@ class BookController extends AbstractController
      *      ),
      *      @SWG\Response(
      *          response=204,
-     *          description="Operazione effettuata correttamente"
+     *          description="Libro eliminato"
+     *     ),
+     *      @SWG\Response(
+     *          response=400,
+     *          description="Libro non trovato",
      *     )
      * )
      * @SWG\Tag(name="Books")
@@ -177,7 +197,7 @@ class BookController extends AbstractController
      * @Route("/api/v1/books", methods={"put"})
      *
      * @SWG\Put(
-     *      description="Inserisce un libro",
+     *      description="Modifica un libro",
      *       @SWG\Parameter(
      *          name="body",
      *          description="Dati di un libro",
@@ -189,6 +209,10 @@ class BookController extends AbstractController
      * @SWG\Response(
      *          response=204,
      *          description="Libro modificato",
+     *     ),
+     * @SWG\Response(
+     *          response=400,
+     *          description="Libro non trovato",
      *     )
      * )
      * @SWG\Tag(name="Books")
@@ -196,30 +220,29 @@ class BookController extends AbstractController
      * */
     public function modifyBook($id,Request $request,ValidatorInterface $validator)
     {
-	try{
-	   $bookRequest=json_decode($request->getContent(),1,512,JSON_THROW_ON_ERROR);
-	   $entityManager=$this->getDoctrine()->getManager();
-	   $book=$entityManager->getRepository(Book::class)->find($id);
-	   if($book==null)
-	     return new Response(null,400);
+	    try{
+	        $bookRequest=json_decode($request->getContent(),1,512,JSON_THROW_ON_ERROR);
+	        $entityManager=$this->getDoctrine()->getManager();
+	        $book=$entityManager->getRepository(Book::class)->find($id);
+	        if($book==null)
+	            return new Response(null,400);
 
 
-          $book->setTitle($bookRequest['title']);
-          $book->setPrice($bookRequest['price']);
+            $book->setTitle($bookRequest['title']);
+            $book->setPrice($bookRequest['price']);
 
-	   //Controllo validazioni
-	   $errors = $validator->validate($book);
-    	   if (count($errors) > 0)
-        	return new Response(null,400);
+	        //Controllo validazioni
+	        $errors = $validator->validate($book);
+    	    if (count($errors) > 0)
+        	    return new Response(null,400);
 
-	  $entityManager->persist($book);
-	  $entityManager->flush();
+	        $entityManager->persist($book);
+	        $entityManager->flush();
 
-	  return new Response(null,204);
-	}
-	catch(\JsonException $exception) {
-	   return new Response($exception->getMessage(),400);
-	}
-
+	        return new Response(null,204);
+	    }
+	    catch(\JsonException $exception) {
+	        return new Response($exception->getMessage(),400);
+        }
     }
 }
